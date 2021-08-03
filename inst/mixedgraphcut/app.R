@@ -90,6 +90,30 @@ server <- function(input,output, session) {
 
   output$uploaded_image <- renderPlot({plot_image_df(input_image_df())})
 
+  # get selected parts of the object and background
+  input_object_box <- eventReactive(input$selectObjectButton, {
+    list(xmin = input$uploaded_image_brush$xmin, xmax = input$uploaded_image_brush$xmax,
+         ymin = input$uploaded_image_brush$ymin, ymax = input$uploaded_image_brush$ymax)
+  })
+
+  input_background_box <- eventReactive(input$selectBackgroundButton, {
+    list(xmin = input$uploaded_image_brush$xmin, xmax = input$uploaded_image_brush$xmax,
+         ymin = input$uploaded_image_brush$ymin, ymax = input$uploaded_image_brush$ymax)
+  })
+
+
+  # run segmentation and display results
+  segmented_image <- eventReactive(input$runButton, {
+    # testing
+    bcg <- lapply(input_background_box(), round)
+    obj <- lapply(input_object_box(), round)
+    paste0("obj, min: ", obj$xmin, ", max: ", obj$xmax, ",   bcg, min: ", bcg$xmin, ", max: ", bcg$xmax)
+  })
+
+  output$mytext <- renderText({segmented_image()})
+
+
+
   # output$downloadPNG <- downloadHandler(
   #   filename = function() {
   #     str_c('rand_workout_plan_', Sys.Date(), '.png', sep='')
@@ -127,15 +151,19 @@ ui <- fluidPage(
     ),
     # main area here ----
     mainPanel(
-      br(),
-      column(12, plotOutput("uploaded_image", height = 300, width = 300,
-                 brush = brushOpts(id = "uploaded_image_brush")),
-             align='center'),
-      br(),
       column(12,
-             actionButton("selectionObject", "Mark as part of the object!", btn_type = "button", class = "btn-secondnary"),
-             actionButton("selectionBackground", "Mark as part of the background!", btn_type = "button", class = "btn-secondnary"),
-             align='center')
+             plotOutput("uploaded_image", height = 300, width = 300, brush = brushOpts(id = "uploaded_image_brush")),
+             align='center'),
+      column(12,
+             actionButton("selectObjectButton", "Mark as part of the object!", btn_type = "button", class = "btn-secondnary"),
+             actionButton("selectBackgroundButton", "Mark as part of the background!", btn_type = "button", class = "btn-secondnary"),
+             align='center'),
+      column(12,
+             actionButton("runButton", "Run segmentation", btn_type = "button", class = "btn-secondnary"),
+             textOutput("mytext"),
+             align = 'center'
+             ),
+
     )
   )
 )
