@@ -105,9 +105,15 @@ server <- function(input,output, session) {
   # run segmentation and display results
   segmented_image <- eventReactive(input$runButton, {
     # testing
-    bcg <- lapply(input_background_box(), round)
-    obj <- lapply(input_object_box(), round)
-    paste0("obj, min: ", obj$xmin, ", max: ", obj$xmax, ",   bcg, min: ", bcg$xmin, ", max: ", bcg$xmax)
+    limits_object <- lapply(input_object_box(), round)
+    limits_background <- lapply(input_background_box(), round)
+
+    # full version - in progress
+    # image_partitioning <- mixedgraphcut::create_partitioning(input_image_df, limits_object, limits_background)
+
+    # temporary output  - testing
+    paste0("obj, min: ", limits_object$xmin, ", max: ", limits_object$xmax,
+           ",   bcg, min: ", limits_background$xmin, ", max: ", limits_background$xmax)
   })
 
   output$mytext <- renderText({segmented_image()})
