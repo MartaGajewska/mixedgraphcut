@@ -72,6 +72,13 @@ server <- function(input,output, session) {
       show("selectionBackground")
   })
 
+  observe({
+    hide("input_n_dist")
+    if(input$input_method == "mixed")
+      show("input_n_dist")
+  })
+
+
   input_image_df <- eventReactive(input$uploadButton, {
     mixedgraphcut::get_image(input$input_image$datapath) %>%
       mixedgraphcut::conv_image_to_df()
@@ -109,7 +116,7 @@ server <- function(input,output, session) {
     limits_background <- lapply(input_background_box(), round)
 
     # full version - in progress
-    # image_partitioning <- mixedgraphcut::create_partitioning(input_image_df, limits_object, limits_background)
+    image_partitioning <- mixedgraphcut::create_partitioning(input_image_df, limits_object, limits_background, input$input_method, input$input_n_dist)
 
     # temporary output  - testing
     paste0("obj, min: ", limits_object$xmin, ", max: ", limits_object$xmax,
@@ -165,6 +172,12 @@ ui <- fluidPage(
              actionButton("selectBackgroundButton", "Mark as part of the background!", btn_type = "button", class = "btn-secondnary"),
              align='center'),
       column(12,
+             selectInput("input_method", "Select method",
+                         choices = list("normal distribution, single distribution" = "regular",
+                                        "gaussian mixture, fixed number of distributions" = "mixed",
+                                        "gaussian mixture, dynamic number of distributions" = "mixed_bic")),
+             selectInput("input_n_dist", "Select number of distributions in a mix",
+                         choices = c(2:10)),
              actionButton("runButton", "Run segmentation", btn_type = "button", class = "btn-secondnary"),
              textOutput("mytext"),
              align = 'center'
