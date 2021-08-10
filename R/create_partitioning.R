@@ -61,7 +61,18 @@ calc_edges_caps <- function(input_image_df, limits_object, limits_background, me
   return(edges_caps)
 }
 
-# TODO add docs
+#' Creates a list of parameters for further calculations
+#'
+#' @param input_image_df df storing image in a specific format
+#' @param limits_object list with coordinates of area (rectangle) selected as part of the object
+#' @param limits_background list with coordinates of area (rectangle) selected as part of the background
+#' @param method selected method of estimating object and background color distributions
+#' @param n_dist number of distributions selected for method "mixed"
+#'
+#' @return named list with parameters
+#' @export
+#'
+#' @examples NULL
 get_params_list <- function(input_image_df, limits_object, limits_background, method, n_dist){
 
   # Get object and background parameters from areas selected by user
@@ -69,6 +80,11 @@ get_params_list <- function(input_image_df, limits_object, limits_background, me
   background_params <- calc_params_selection(test_image, "background", mode, k_background)
 
   # TODO create a list with params from above, from args and from config
+  return(list(object_params = object_params,
+              background_params = background_params,
+              n_dist = n_dist
+              # Additional params to be added later on
+              ))
 }
 
 # TODO add docs
