@@ -51,14 +51,15 @@ light <- bs_theme(version = 4, bootswatch = "minty")
 # server function of the app
 ################################################################################
 server <- function(input,output, session) {
-
+# TODO organize server code by module
+# TODO check if vals are used
   vals <- reactiveValues()
 
-  # define set_or_sets variable
-  set_or_sets <- reactive({
-    if(input$n_sets > 1){"sets"}
-    else {"set"}
-  })
+  # # define set_or_sets variable
+  # set_or_sets <- reactive({
+  #   if(input$n_sets > 1){"sets"}
+  #   else {"set"}
+  # })
 
   observe({
     hide("selectionObject")
@@ -73,9 +74,12 @@ server <- function(input,output, session) {
   })
 
   observe({
-    hide("input_n_dist")
-    if(input$input_method == "mixed")
-      show("input_n_dist")
+    hide("input_n_dist_object")
+    hide("input_n_dist_background")
+    if(input$input_method == "mixed") {
+      show("input_n_dist_object")
+      show("input_n_dist_background")
+    }
   })
 
 
@@ -116,7 +120,7 @@ server <- function(input,output, session) {
     limits_background <- lapply(input_background_box(), round)
 
     # full version - in progress
-    image_partitioning <- mixedgraphcut::create_partitioning(input_image_df, limits_object, limits_background, input$input_method, input$input_n_dist)
+    image_partitioning <- mixedgraphcut::create_partitioning(input_image_df, limits_object, limits_background, input$input_method, list(object = input$input_n_dist_object, background = input$input_n_dist_background))
 
     # temporary output  - testing
     paste0("obj, min: ", limits_object$xmin, ", max: ", limits_object$xmax,
@@ -176,7 +180,9 @@ ui <- fluidPage(
                          choices = list("normal distribution, single distribution" = "regular",
                                         "gaussian mixture, fixed number of distributions" = "mixed",
                                         "gaussian mixture, dynamic number of distributions" = "mixed_bic")),
-             selectInput("input_n_dist", "Select number of distributions in a mix",
+             selectInput("input_n_dist_object", "Select number of distributions in a mix for the object",
+                         choices = c(2:10)),
+             selectInput("input_n_dist_background", "Select number of distributions in a mix for the background",
                          choices = c(2:10)),
              actionButton("runButton", "Run segmentation", btn_type = "button", class = "btn-secondnary"),
              textOutput("mytext"),
