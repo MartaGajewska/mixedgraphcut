@@ -16,6 +16,7 @@ create_partitioning <- function(input_image_df, limits_object, limits_background
   set.seed(17)
 
   # Calculate values that will be associated with each graph edge
+  # TODO add supporting functions
   edges_caps <- calc_edges_caps(input_image_df, limits_object, limits_background, method, n_dist)
   # default params in config, maybe option to modify in the app
 
@@ -41,22 +42,24 @@ create_partitioning <- function(input_image_df, limits_object, limits_background
 #' @param n_dist list with number of distributions selected for method "mixed" for object & background
 #'
 #' @return df storing edge capacities with each edge in a separate row
+#' @export
 #'
 #' @examples NULL
 calc_edges_caps <- function(input_image_df, limits_object, limits_background, method, n_dist){
 
   # Add pixel tagging to mark pixels selected by the user as object & background
-  input_image_df <- add_user_selections(input_image_df, limits_object, limits_background)
+  input_image_df <- add_user_tagging(input_image_df, limits_object, limits_background)
 
   # Create a list with parameters that will be used in the calculations
   params <- get_params_list(input_image_df, method, n_dist)
 
   # Calculate probabilities that a pixel color is coming from the same distribution
   # as pixels selected as object / as background
-  vertices_probs <- calc_vertices_probs(input_image_df, method, params)
+  vertices_probs <- calc_vertices_probs(input_image_df, method, params$object_params, params$background_params)
 
   # Calculate capacities of the edges connecting pixels with source, sink and neighbours
-  sources_edges_caps      <- calc_sources_edges_caps(vertices_probs)
+  # TODO add supporting functions
+  source_edges_caps       <- calc_source_edges_caps(vertices_probs)
   sink_edges_caps         <- calc_sink_edges_caps(vertices_probs)
   neighborhood_edges_caps <- calc_neighborhood_edges_caps(vertices_probs, params)
 
@@ -73,11 +76,11 @@ calc_edges_caps <- function(input_image_df, limits_object, limits_background, me
 #' @param limits_object
 #' @param limits_background
 #'
-#' @return
+#' @return df with additional column named user_tagging
 #' @export
 #'
-#' @examples
-add_user_selections <- function(input_image_df, limits_object, limits_background) {
+#' @examples NULL
+add_user_tagging <- function(input_image_df, limits_object, limits_background) {
 
   input_image_df %>%
     mutate(user_tagging =
@@ -124,7 +127,7 @@ get_params_list <- function(input_image_df, method, n_dist){
 #' @param method selected method of estimating object and background color distributions
 #' @param n_dist number of distributions selected
 #'
-#' @return
+#' @return named list with parameters of estimated distribution
 #' @export
 #'
 #' @examples NULL
@@ -169,4 +172,184 @@ calc_params_distribution <- function(input_image_df, type, method, n_dist = NA) 
   }
 
   return(params)
+}
+
+
+#' Calculates probabilities that a pixel color is coming from the same
+#' distribution as pixels selected as object / as background
+#'
+#' @param input_image_df df storing image in a specific format
+#' @param method selected method of estimating object and background color distributions
+#' @param object_params list with parameters of the estimated object distribution
+#' @param background_params list with parameters of the estimated background distribution
+#'
+#' @return df with additional columns named dnorm_object & dnorm_background
+#' @export
+#'
+#' @examples NULL
+calc_vertices_probs <- function(input_image_df, method, object_params, background_params){
+
+  # TODO: add handling of b-w pictures (first, check if current version needs any special handling anyway)
+  # if(sum(object_params$var!=object_params$var[1,1])==0){
+  #   # All color channels are identical
+  #   input_image_df <- input_image_df %>%
+  #     mutate(dnorm_object = dnorm(node_value_cc_1,
+  #                                 mean = object_params$means[1],
+  #                                 sd = object_params$var[1,1]),
+  #            dnorm_background = dnorm(node_value_cc_1,
+  #                                     mean = background_params$means[1],
+  #                                     sd = background_params$var[1,1]))
+  # } else {
+
+  # Different color channels
+  if (method == "regular") {
+    # Single multivariate normal distribution
+    input_image_df <- input_image_df %>%
+      mutate(dnorm_object =
+               mvtnorm::dmvnorm(input_image_df %>% select(starts_with("node_value_")),
+                                mean  = object_params$means,
+                                sigma = object_params$var),
+             dnorm_background =
+               mvtnorm::dmvnorm(input_image_df %>% select(starts_with("node_value_")),
+                                mean  = background_params$means,
+                                sigma = background_params$var))
+  } else {
+    # Gaussian mixture
+    input_image_df <- input_image_df %>%
+      mutate(dnorm_object =
+               purrr::map_dfc(1:length(object_params$lambdas),
+                              function(i) object_params$lambda[i] * mvtnorm::dmvnorm(
+                                input_image_df %>% select(starts_with("node_value_")),
+                                mean = object_params$means[[i]],
+                                sigma = object_params$vars[[i]])) %>% rowSums(),
+             dnorm_background =
+               purrr::map_dfc(1:length(background_params$lambdas),
+                              function(i) background_params$lambda[i] * mvtnorm::dmvnorm(
+                                input_image_df %>% select(starts_with("node_value_")),
+                                mean = background_params$means[[i]],
+                                sigma = background_params$vars[[i]])) %>% rowSums())
+  }
+
+
+  return(input_image_df)
+}
+
+
+#' Calculates capacities of edges connecting source vertex and pixel vertices
+#'
+#' @param vertices_probs df with image information and dnorm_object & dnorm_background columns
+#'
+#' @return df with from & to columns storing node ids, and capacities of those edges
+#' @export
+#'
+#' @examples NULL
+calc_source_edges_caps <- function(vertices_probs){
+
+  source_edges_caps <- vertices_probs %>%
+    # 1 is the reserved node number for a special vertex - source
+    mutate(from = 1) %>%
+    rename(`to` = `node_id`) %>%
+    # TODO check if -log(x) or x
+    # mutate(capacity = -log(dnorm_object)) %>%
+    mutate(capacity = dnorm_object) %>%
+    # change capacity for selected pixels to a high constant to keep user constrain
+    mutate(capacity = ifelse(is.na(user_tagging) | user_tagging != "object", capacity, 1000000)) %>%
+    select(from, to, capacity)
+
+  return(source_edges_caps)
+}
+
+
+#' Calculates capacities of edges connecting sink vertex and pixel vertices
+#'
+#' @param vertices_probs df with image information and dnorm_object & dnorm_background columns
+#'
+#' @return df with from & to columns storing node ids, and capacities of those edges
+#' @export
+#'
+#' @examples NULL
+calc_sink_edges_caps <- function(vertices_probs){
+
+  sink_edges_caps <- vertices_probs %>%
+    # 2 is the reserved node number for a special vertex - sink
+    rename(`from` = `node_id`) %>%
+    mutate(to = 2) %>%
+    # TODO check if -log(x) or x
+    # mutate(capacity = -log(dnorm_background)) %>%
+    mutate(capacity = dnorm_background) %>%
+    # change capacity for selected pixels to a high constant to keep user constrain
+    mutate(capacity = ifelse(is.na(user_tagging) | user_tagging != "background", capacity, 1000000)) %>%
+    select(from, to, capacity)
+
+  return(sink_edges_caps)
+}
+
+
+#' Calculates capacities of edges connecting pixel vertices
+#'
+#' @param vertices_probs df with image information and dnorm_object & dnorm_background columns
+#' @param params named list with parameters
+#'
+#' @return df with from & to columns storing node ids, and capacities of those edges
+#' @export
+#'
+#' @examples NULL
+calc_neighborhood_edges_caps <- function(vertices_probs, params){
+
+  # TODO START HERE: just a copy paste from the old version, adjust & improve
+  # Create a df with neighbouring (4) pixels
+  # Each pair is in the subset twice (x -> y & y -> x)
+  image_dt <- data.table(image_df)
+
+  neighborhood_dt <- data.table::rbindlist(list(
+    copy(image_dt)[,`:=`(mod_col= 1, mod_row = 0)],
+    copy(image_dt)[,`:=`(mod_col = -1, mod_row = 0)],
+    copy(image_dt)[,`:=`(mod_col = 0, mod_row = 1)],
+    copy(image_dt)[,`:=`(mod_col = 0, mod_row = -1)]
+  )
+  )
+
+  # calculate neighbor coordinates
+  neighborhood_dt[, `:=`(ngb_column = column + mod_col, ngb_row = row + mod_row)]
+
+
+  # find neighbor pixel value
+  neighborhood_merged <-
+    merge(
+      neighborhood_dt,
+      copy(image_dt),
+      by.x = c('ngb_column', 'ngb_row'),
+      by.y = c('column', 'row'),
+      all.x = TRUE
+    )[!is.na(node_id.y),]
+
+  # define constast coef
+  color_diff_sq <- neighborhood_merged %>%
+    mutate(
+      color_diff_sq =
+        (node_value_cc_1.x - node_value_cc_1.y) ^ 2 +
+        (node_value_cc_2.x - node_value_cc_2.y) ^ 2 +
+        (node_value_cc_3.x - node_value_cc_3.y) ^ 2
+    ) %>%
+    pull(color_diff_sq)
+
+
+  # should we add sqrt somewhere? it's not in the source formula, but would make sense
+  contrast <- 1/(2*sum(color_diff_sq)/length(color_diff_sq))
+
+  # calc node capacity
+  neighborhood_edges_caps <- neighborhood_merged[
+    , capacity := (total_smoothness + similarity_smoothness*exp(-(
+      (node_value_cc_1.x - node_value_cc_1.y)^2 +
+        (node_value_cc_2.x - node_value_cc_2.y)^2 +
+        (node_value_cc_3.x - node_value_cc_3.y)^2
+    ))*contrast)*neigh_coef
+  ][,c("node_id.x", "node_id.y", "capacity")]
+
+  setnames(neighborhood_edges_caps,
+           colnames(neighborhood_edges_caps),
+           c("from", "to", "capacity"))
+
+
+  return(neighborhood_edges_caps)
 }
