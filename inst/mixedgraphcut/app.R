@@ -73,16 +73,6 @@ server <- function(input,output, session) {
       show("selectionBackground")
   })
 
-  observe({
-    hide("input_n_dist_object")
-    hide("input_n_dist_background")
-    if(input$input_method == "mixed") {
-      show("input_n_dist_object")
-      show("input_n_dist_background")
-    }
-  })
-
-
   input_image_df <- eventReactive(input$uploadButton, {
     mixedgraphcut::get_image(input$input_image$datapath) %>%
       mixedgraphcut::conv_image_to_df()
@@ -101,33 +91,61 @@ server <- function(input,output, session) {
 
   output$uploaded_image <- renderPlot({plot_image_df(input_image_df())})
 
+  observe({
+    hide("input_n_dist_object")
+    hide("input_n_dist_background")
+    if(input$input_method == "mixed") {
+      show("input_n_dist_object")
+      show("input_n_dist_background")
+    }
+  })
   # get selected parts of the object and background
-  input_object_box <- eventReactive(input$selectObjectButton, {
-    list(xmin = input$uploaded_image_brush$xmin, xmax = input$uploaded_image_brush$xmax,
-         ymin = input$uploaded_image_brush$ymin, ymax = input$uploaded_image_brush$ymax)
+  observeEvent(input$selectObjectButton, {
+    vals$input_object_box <- list(xmin = input$uploaded_image_brush$xmin, xmax = input$uploaded_image_brush$xmax,
+                                  ymin = input$uploaded_image_brush$ymin, ymax = input$uploaded_image_brush$ymax)
   })
 
-  input_background_box <- eventReactive(input$selectBackgroundButton, {
-    list(xmin = input$uploaded_image_brush$xmin, xmax = input$uploaded_image_brush$xmax,
-         ymin = input$uploaded_image_brush$ymin, ymax = input$uploaded_image_brush$ymax)
+  observeEvent(input$selectBackgroundButton, {
+    vals$input_background_box <- list(xmin = input$uploaded_image_brush$xmin, xmax = input$uploaded_image_brush$xmax,
+                                      ymin = input$uploaded_image_brush$ymin, ymax = input$uploaded_image_brush$ymax)
   })
 
 
   # run segmentation and display results
   segmented_image <- eventReactive(input$runButton, {
     # testing
-    limits_object <- lapply(input_object_box(), round)
-    limits_background <- lapply(input_background_box(), round)
+    limits_object <- lapply(vals$input_object_box, round)
+    limits_background <- lapply(vals$input_background_box, round)
 
     # full version - in progress
+    input_image_df <- input_image_df()
     image_partitioning <- mixedgraphcut::create_partitioning(input_image_df, limits_object, limits_background, input$input_method, list(object = input$input_n_dist_object, background = input$input_n_dist_background))
 
     # temporary output  - testing
-    paste0("obj, min: ", limits_object$xmin, ", max: ", limits_object$xmax,
-           ",   bcg, min: ", limits_background$xmin, ", max: ", limits_background$xmax)
+    # paste0("obj, min: ", limits_object$xmin, ", max: ", limits_object$xmax,
+    #        ",   bcg, min: ", limits_background$xmin, ", max: ", limits_background$xmax)
+    #
+    browser()
+    results_plot <-
+      ggplot() +
+      geom_raster(data = input_image_df %>%
+                    filter(column != 1 ),
+                  aes(column-1, row, fill=rgb_value), hjust = 0.5)  +
+      geom_point(data = input_image_df %>%
+                   filter(node_id %in% partitioning$partition2) %>%
+                   filter(column != max(input_image_df$column)),
+                 aes(column, row), color = "black", alpha = 0.4, size = 2) +
+      scale_y_reverse() +
+      scale_fill_identity() +
+      theme(legend.position="none") +
+      theme_void()+
+      coord_fixed(ratio=1) +
+      labs(title = paste0("Wyniki, metoda ", mode))
+    return(results_plot)
+
   })
 
-  output$mytext <- renderText({segmented_image()})
+  output$resultsPlot <- renderPlot({segmented_image()})
 
 
 
@@ -185,7 +203,7 @@ ui <- fluidPage(
              selectInput("input_n_dist_background", "Select number of distributions in a mix for the background",
                          choices = c(2:10)),
              actionButton("runButton", "Run segmentation", btn_type = "button", class = "btn-secondnary"),
-             textOutput("mytext"),
+             plotOutput("resultsPlot"),
              align = 'center'
              ),
 

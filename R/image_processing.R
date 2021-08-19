@@ -7,7 +7,7 @@
 #' @export
 #'
 #' @examples NULL
-get_image <- function(image_path, max_size = 120) {
+get_image <- function(image_path, max_size = 80) {
   # Load the image from specified path
   image <- imager::load.image(image_path)
 

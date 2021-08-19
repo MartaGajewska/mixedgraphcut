@@ -22,15 +22,12 @@ create_partitioning <- function(input_image_df, limits_object, limits_background
 
   # Convert to igraph object
   # TODO add supporting functions
-  image_graph <- conv_image_to_graph(image_with_node_values)
+  image_graph <- conv_image_to_graph(edges_caps)
 
   # Create image partitioning using max flow algorithm
-  partitioning <-
-    igraph::max_flow(
-      image_graph,
-      source = igraph::V(image_graph)["1"],
-      target = igraph::V(image_graph)["2"]
-    )
+  partitioning <- calc_partitioning(image_graph)
+
+  return(partitioning)
 }
 
 #' Calculates capacities of graph edges
@@ -46,7 +43,6 @@ create_partitioning <- function(input_image_df, limits_object, limits_background
 #'
 #' @examples NULL
 calc_edges_caps <- function(input_image_df, limits_object, limits_background, method, n_dist){
-
   # Add pixel tagging to mark pixels selected by the user as object & background
   input_image_df <- add_user_tagging(input_image_df, limits_object, limits_background)
 
@@ -64,7 +60,7 @@ calc_edges_caps <- function(input_image_df, limits_object, limits_background, me
   neighborhood_edges_caps <- calc_neighborhood_edges_caps(vertices_probs, params)
 
   # Combine edges connecting pixels with source, sink and neighbours
-  edges_caps <- rbindlist(list(sources_edges_caps, sink_edges_caps, neighborhood_edges_caps))
+  edges_caps <- rbindlist(list(source_edges_caps, sink_edges_caps, neighborhood_edges_caps))
 
   return(edges_caps)
 }
@@ -115,7 +111,10 @@ get_params_list <- function(input_image_df, method, n_dist){
   # Create a list with params from above, from args and from config
   return(list(object_params = object_params,
               background_params = background_params,
-              n_dist = n_dist
+              n_dist = n_dist,
+              total_smoothness = 3,
+              similarity_smoothness = 3,
+              neigh_coef = 1
               # Additional params to be added when neededlater on
               ))
 }
@@ -207,11 +206,11 @@ calc_vertices_probs <- function(input_image_df, method, object_params, backgroun
     input_image_df <- input_image_df %>%
       mutate(dnorm_object =
                mvtnorm::dmvnorm(input_image_df %>% select(starts_with("node_value_")),
-                                mean  = object_params$means,
+                                mean  = object_params$mean,
                                 sigma = object_params$var),
              dnorm_background =
                mvtnorm::dmvnorm(input_image_df %>% select(starts_with("node_value_")),
-                                mean  = background_params$means,
+                                mean  = background_params$mean,
                                 sigma = background_params$var))
   } else {
     # Gaussian mixture
@@ -296,33 +295,29 @@ calc_sink_edges_caps <- function(vertices_probs){
 #' @examples NULL
 calc_neighborhood_edges_caps <- function(vertices_probs, params){
 
-  # TODO START HERE: just a copy paste from the old version, adjust & improve
   # Create a df with neighbouring (4) pixels
   # Each pair is in the subset twice (x -> y & y -> x)
-  image_dt <- data.table(image_df)
-
-  neighborhood_dt <- data.table::rbindlist(list(
-    copy(image_dt)[,`:=`(mod_col= 1, mod_row = 0)],
-    copy(image_dt)[,`:=`(mod_col = -1, mod_row = 0)],
-    copy(image_dt)[,`:=`(mod_col = 0, mod_row = 1)],
-    copy(image_dt)[,`:=`(mod_col = 0, mod_row = -1)]
-  )
-  )
 
   # calculate neighbor coordinates
-  neighborhood_dt[, `:=`(ngb_column = column + mod_col, ngb_row = row + mod_row)]
-
+  neighborhood_df <- dplyr::full_join(
+    vertices_probs,
+    # neighbors = same column, adjacent row OR same row, adjacent column
+    data.frame(mod_col = c(1, -1, 0, 0), mod_row = c(0, 0, 1, -1)),
+    by = character()) %>%
+    mutate(ngb_column = column + mod_col, ngb_row = row + mod_row)
 
   # find neighbor pixel value
   neighborhood_merged <-
-    merge(
-      neighborhood_dt,
-      copy(image_dt),
-      by.x = c('ngb_column', 'ngb_row'),
-      by.y = c('column', 'row'),
+    full_join(
+      neighborhood_df,
+      vertices_probs,
+      by = c('ngb_column' = 'column', 'ngb_row' = 'row'),
       all.x = TRUE
-    )[!is.na(node_id.y),]
+    ) %>%
+    # remove rows with ngb_column or ngb_row outside picture boarders
+    filter(!is.na(`node_id.y`))
 
+  # TODO add comments explaining the formula
   # define constast coef
   color_diff_sq <- neighborhood_merged %>%
     mutate(
@@ -333,23 +328,43 @@ calc_neighborhood_edges_caps <- function(vertices_probs, params){
     ) %>%
     pull(color_diff_sq)
 
-
-  # should we add sqrt somewhere? it's not in the source formula, but would make sense
+  # TODO add comments explaining the formula
+  # TODO check -  should we add sqrt somewhere? it's not in the source formula, but would make sense
   contrast <- 1/(2*sum(color_diff_sq)/length(color_diff_sq))
 
+  # TODO add comments explaining the formula
   # calc node capacity
-  neighborhood_edges_caps <- neighborhood_merged[
-    , capacity := (total_smoothness + similarity_smoothness*exp(-(
+  neighborhood_edges_caps <- neighborhood_merged %>%
+    mutate(capacity= (params$total_smoothness + params$similarity_smoothness*exp(-(
       (node_value_cc_1.x - node_value_cc_1.y)^2 +
         (node_value_cc_2.x - node_value_cc_2.y)^2 +
         (node_value_cc_3.x - node_value_cc_3.y)^2
-    ))*contrast)*neigh_coef
-  ][,c("node_id.x", "node_id.y", "capacity")]
+    ))*contrast)*params$neigh_coef
+  ) %>%
+    select(node_id.x, node_id.y, capacity)
 
   setnames(neighborhood_edges_caps,
            colnames(neighborhood_edges_caps),
            c("from", "to", "capacity"))
 
-
   return(neighborhood_edges_caps)
+}
+
+# TODO add documentation
+conv_image_to_graph <- function(edges_caps) {
+  image_graph <-
+    igraph::graph_from_data_frame(as.data.frame(edges_caps))
+
+  return(image_graph)
+}
+
+# TODO add documentation
+calc_partitioning <- function(image_graph) {
+  partitioning <- igraph::max_flow(
+    image_graph,
+    source = igraph::V(image_graph)["1"],
+    target = igraph::V(image_graph)["2"]
+  )
+
+  return(partitioning)
 }
