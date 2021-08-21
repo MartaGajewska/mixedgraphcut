@@ -131,7 +131,6 @@ get_params_list <- function(input_image_df, method, n_dist){
 #'
 #' @examples NULL
 calc_params_distribution <- function(input_image_df, type, method, n_dist = NA) {
-
   # Subset pixels, keep only those selected by the user
   selected_pixels <- input_image_df %>%
     filter(user_tagging == type) %>%
@@ -149,8 +148,22 @@ calc_params_distribution <- function(input_image_df, type, method, n_dist = NA) 
     # Multivariate normal mixture
     # Params are means, variances, and lambdas (e.g. mixing proportions)
     # n_dist - selected number of distributions in a mix
-    mixmdl <-  mixtools::mvnormalmixEM(selected_pixels %>% as.data.frame(), k = n_dist)
-    params <- list(means = mixmdl$mu, vars = mixmdl$sigma, lambdas = mixmdl$lambda)
+
+    tryCatch({
+      mixmdl <-  mixtools::mvnormalmixEM(selected_pixels %>% as.data.frame(), k = n_dist %>% as.numeric())
+      params <- list(means = mixmdl$mu, vars = mixmdl$sigma, lambdas = mixmdl$lambda)
+      return(params)
+    },
+    error = function(e) {
+      message('Singluar matrix:', e)
+      showModal(
+        modalDialog(
+          div(paste0("In the process of estimating ", type, " distribution, a singular matrix was obtained"))
+          ,easyClose = TRUE)
+      )
+      return(NULL)
+    }
+    )
   }
 
   if (method == "mixed_bic") {
