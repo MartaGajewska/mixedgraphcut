@@ -17,6 +17,7 @@ library(writexl)
 library(bslib)
 library(shinyjs)
 library(httr)
+library(mclust)
 library(ggplot2)
 ################################################################################
 #Set up some variables, define all as global (the <<- notation)
@@ -52,14 +53,7 @@ light <- bs_theme(version = 4, bootswatch = "minty")
 ################################################################################
 server <- function(input,output, session) {
 # TODO organize server code by module
-# TODO check if vals are used
   vals <- reactiveValues()
-
-  # # define set_or_sets variable
-  # set_or_sets <- reactive({
-  #   if(input$n_sets > 1){"sets"}
-  #   else {"set"}
-  # })
 
   observe({
     hide("selectionObject")
@@ -86,7 +80,9 @@ server <- function(input,output, session) {
         scale_y_reverse() +
         scale_fill_identity() +
         theme(legend.position="none") +
-        theme_void()
+        theme_void() +
+        coord_fixed(ratio=1)
+
   })
 
   output$uploaded_image <- renderPlot({plot_image_df(input_image_df())})
@@ -125,14 +121,13 @@ server <- function(input,output, session) {
     # paste0("obj, min: ", limits_object$xmin, ", max: ", limits_object$xmax,
     #        ",   bcg, min: ", limits_background$xmin, ", max: ", limits_background$xmax)
     #
-    browser()
     results_plot <-
       ggplot() +
       geom_raster(data = input_image_df %>%
                     filter(column != 1 ),
                   aes(column-1, row, fill=rgb_value), hjust = 0.5)  +
       geom_point(data = input_image_df %>%
-                   filter(node_id %in% partitioning$partition2) %>%
+                   filter(node_id %in% image_partitioning$partition2) %>%
                    filter(column != max(input_image_df$column)),
                  aes(column, row), color = "black", alpha = 0.4, size = 2) +
       scale_y_reverse() +
@@ -140,7 +135,9 @@ server <- function(input,output, session) {
       theme(legend.position="none") +
       theme_void()+
       coord_fixed(ratio=1) +
-      labs(title = paste0("Wyniki, metoda ", mode))
+      labs(title = paste0("Segmentation"))
+
+    # TODO add option to download results: object or background
     return(results_plot)
 
   })
@@ -177,31 +174,44 @@ ui <- fluidPage(
   sidebarLayout(
     #side bar here ----
     sidebarPanel(
+      width = 3,
       useShinyjs(),
+      tags$body(
+        h4(strong('Settings: segmentation method')),
+        br(),
+        p(strong('Available methods:')),
+        #TODO create bullets
+        p('- single normal distribution'),
+        p('- gaussian mixture with fixed number of distributions (to be specified)'),
+        p('- gaussian mixture with dynamic number of distributions')
+      ),
+      selectInput("input_method", "Select method",
+                  choices = list("single distribution" = "regular",
+                                 "mixture, fixed" = "mixed",
+                                 "mixture, dynamic" = "mixed_bic")),
 
-      #define input sliders ----
-      fileInput("input_image", "Step 1: Upload an image", accept = c(".jpg", ".png", ".bmp")),
-      #action button to run setup ----
-      actionButton("uploadButton", "Upload!", btn_type = "button", class = "btn-secondnary"),
-    ),
+                  # choices = list("normal distribution, single distribution" = "regular",
+                  #                "gaussian mixture, fixed number of distributions" = "mixed",
+                  #                "gaussian mixture, dynamic number of distributions" = "mixed_bic")),
+      selectInput("input_n_dist_object", "Select number of distributions in the object mixture",
+                  choices = c(2:10)),
+      selectInput("input_n_dist_background", "Select number of distributions in the background mixture",
+                  choices = c(2:10))
+      ),
     # main area here ----
     mainPanel(
-      column(12,
+      column(6,
+             br(),
+             h4(strong('Upload and annotate an image')),
+             br(),
+             fluidRow(
+              column(6, fileInput("input_image", "Choose an image", accept = c(".jpg", ".png", ".bmp"))),
+              column(6, br(), actionButton("uploadButton", "Upload!", btn_type = "button", class = "btn-secondnary"))),
              plotOutput("uploaded_image", height = 300, width = 300, brush = brushOpts(id = "uploaded_image_brush")),
-             align='center'),
-      column(12,
              actionButton("selectObjectButton", "Mark as part of the object!", btn_type = "button", class = "btn-secondnary"),
-             actionButton("selectBackgroundButton", "Mark as part of the background!", btn_type = "button", class = "btn-secondnary"),
-             align='center'),
-      column(12,
-             selectInput("input_method", "Select method",
-                         choices = list("normal distribution, single distribution" = "regular",
-                                        "gaussian mixture, fixed number of distributions" = "mixed",
-                                        "gaussian mixture, dynamic number of distributions" = "mixed_bic")),
-             selectInput("input_n_dist_object", "Select number of distributions in a mix for the object",
-                         choices = c(2:10)),
-             selectInput("input_n_dist_background", "Select number of distributions in a mix for the background",
-                         choices = c(2:10)),
+             actionButton("selectBackgroundButton", "Mark as part of the background!", btn_type = "button", class = "btn-secondnary")
+             ),
+      column(6,
              actionButton("runButton", "Run segmentation", btn_type = "button", class = "btn-secondnary"),
              plotOutput("resultsPlot"),
              align = 'center'
