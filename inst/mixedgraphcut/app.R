@@ -19,6 +19,9 @@ library(shinyjs)
 library(httr)
 library(mclust)
 library(ggplot2)
+# library(shinyWidgets)
+library(shinycssloaders)
+
 ################################################################################
 #Set up some variables, define all as global (the <<- notation)
 #name of R package
@@ -56,16 +59,21 @@ server <- function(input,output, session) {
   vals <- reactiveValues()
 
   observe({
-    hide("selectionObject")
     if(input$uploadButton)
-      show("selectionObject")
+      show("selectObjectButton")
   })
 
   observe({
-    hide("selectionBackground")
-    if(input$uploadButton)
-      show("selectionBackground")
+    hide("selectObjectButton")
+    hide("selectBackgroundButton")
+    hide("runButton")
+    if(input$uploadButton) {
+      show("selectObjectButton")
+      show("selectBackgroundButton")
+      show("runButton")
+    }
   })
+
 
   input_image_df <- eventReactive(input$uploadButton, {
     mixedgraphcut::get_image(input$input_image$datapath) %>%
@@ -106,7 +114,6 @@ server <- function(input,output, session) {
                                       ymin = input$uploaded_image_brush$ymin, ymax = input$uploaded_image_brush$ymax)
   })
 
-
   # run segmentation and display results
   segmented_image <- eventReactive(input$runButton, {
     # testing
@@ -129,7 +136,11 @@ server <- function(input,output, session) {
       geom_point(data = input_image_df %>%
                    filter(node_id %in% image_partitioning$partition2) %>%
                    filter(column != max(input_image_df$column)),
-                 aes(column, row), color = "black", alpha = 0.4, size = 2) +
+                 aes(column, row), color = "black", alpha = 0.5, size = 2) +
+      geom_point(data = input_image_df %>%
+                   filter(node_id %in% image_partitioning$partition1) %>%
+                   filter(column != max(input_image_df$column)),
+                 aes(column, row), color = "white", alpha = 0.5, size = 2) +
       scale_y_reverse() +
       scale_fill_identity() +
       theme(legend.position="none") +
@@ -142,8 +153,21 @@ server <- function(input,output, session) {
 
   })
 
-  output$resultsPlot <- renderPlot({segmented_image()})
-
+  output$resultsPlot <- renderPlot({
+    if (!input$runButton) {
+      # default plot
+      #TODO change text
+      text = paste("\n   The following is text that'll appear in a plot window.\n",
+                   "       As you can see, it's in the plot window\n",
+                   "       One might imagine useful information here")
+      ggplot() +
+        annotate("text", x = 4, y = 25, size=8, label = text) +
+        theme_void()
+    } else{
+      # updated plot
+      segmented_image()
+    }
+    })
 
 
   # output$downloadPNG <- downloadHandler(
@@ -205,18 +229,23 @@ ui <- fluidPage(
              h4(strong('Upload and annotate an image')),
              br(),
              fluidRow(
+               #TODO change naming to one convention - camelcase or underscores
+               #TODO add error handling - e.g. when no file is selected, but the upload button is clicked
               column(6, fileInput("input_image", "Choose an image", accept = c(".jpg", ".png", ".bmp"))),
               column(6, br(), actionButton("uploadButton", "Upload!", btn_type = "button", class = "btn-secondnary"))),
              plotOutput("uploaded_image", height = 300, width = 300, brush = brushOpts(id = "uploaded_image_brush")),
              actionButton("selectObjectButton", "Mark as part of the object!", btn_type = "button", class = "btn-secondnary"),
-             actionButton("selectBackgroundButton", "Mark as part of the background!", btn_type = "button", class = "btn-secondnary")
+             actionButton("selectBackgroundButton", "Mark as part of the background!", btn_type = "button", class = "btn-secondnary"),
+             br(),
+             actionButton("runButton", "Run classification!", btn_type = "button", class = "btn-secondnary")
              ),
       column(6,
-             actionButton("runButton", "Run segmentation", btn_type = "button", class = "btn-secondnary"),
-             plotOutput("resultsPlot"),
-             align = 'center'
+             br(),
+             h4(strong('Received segmentation')),
+             shinycssloaders::withSpinner(plotOutput("resultsPlot")),
+             p('If you are not satisfied with the results, go back to settings and / or change annotations'),
+             # align = 'center'
              ),
-
     )
   )
 )
