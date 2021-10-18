@@ -16,12 +16,10 @@ create_partitioning <- function(input_image_df, limits_object, limits_background
   set.seed(17)
 
   # Calculate values that will be associated with each graph edge
-  # TODO add supporting functions
   edges_caps <- calc_edges_caps(input_image_df, limits_object, limits_background, method, n_dist)
   # default params in config, maybe option to modify in the app
 
   # Convert to igraph object
-  # TODO add supporting functions
   image_graph <- conv_image_to_graph(edges_caps)
 
   # Create image partitioning using max flow algorithm
@@ -54,13 +52,12 @@ calc_edges_caps <- function(input_image_df, limits_object, limits_background, me
   vertices_probs <- calc_vertices_probs(input_image_df, method, params$object_params, params$background_params)
 
   # Calculate capacities of the edges connecting pixels with source, sink and neighbours
-  # TODO add supporting functions
   source_edges_caps       <- calc_source_edges_caps(vertices_probs)
   sink_edges_caps         <- calc_sink_edges_caps(vertices_probs)
   neighborhood_edges_caps <- calc_neighborhood_edges_caps(vertices_probs, params)
 
   # Combine edges connecting pixels with source, sink and neighbours
-  edges_caps <- rbindlist(list(source_edges_caps, sink_edges_caps, neighborhood_edges_caps))
+  edges_caps <- data.table::rbindlist(list(source_edges_caps, sink_edges_caps, neighborhood_edges_caps))
 
   return(edges_caps)
 }
@@ -356,14 +353,21 @@ calc_neighborhood_edges_caps <- function(vertices_probs, params){
   ) %>%
     select(node_id.x, node_id.y, capacity)
 
-  setnames(neighborhood_edges_caps,
-           colnames(neighborhood_edges_caps),
-           c("from", "to", "capacity"))
+  colnames(neighborhood_edges_caps) <-
+           c("from", "to", "capacity")
 
   return(neighborhood_edges_caps)
 }
 
-# TODO add documentation
+#' Converts data frame with edges and capacities to igraph format
+#'
+#' @param edges_caps df with edges and capacities
+#'
+#' @return igraph object
+#' @export
+#'
+#' @examples
+#' NULL
 conv_image_to_graph <- function(edges_caps) {
   image_graph <-
     igraph::graph_from_data_frame(as.data.frame(edges_caps))

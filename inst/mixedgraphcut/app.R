@@ -58,10 +58,10 @@ server <- function(input,output, session) {
 # TODO organize server code by module
   vals <- reactiveValues()
 
-  observe({
-    if(input$uploadButton)
-      show("selectObjectButton")
-  })
+  # observe({
+  #   if(input$uploadButton)
+  #     show("selectObjectButton")
+  # })
 
   observe({
     hide("selectObjectButton")
@@ -145,8 +145,8 @@ server <- function(input,output, session) {
       scale_fill_identity() +
       theme(legend.position="none") +
       theme_void()+
-      coord_fixed(ratio=1) +
-      labs(title = paste0("Segmentation"))
+      coord_fixed(ratio=1)
+      # labs(title = paste0("Segmentation"))
 
     # TODO add option to download results: object or background
     return(results_plot)
@@ -156,12 +156,9 @@ server <- function(input,output, session) {
   output$resultsPlot <- renderPlot({
     if (!input$runButton) {
       # default plot
-      #TODO change text
-      text = paste("\n   The following is text that'll appear in a plot window.\n",
-                   "       As you can see, it's in the plot window\n",
-                   "       One might imagine useful information here")
+      text = paste("\n ... waiting for segmentation results ...\n")
       ggplot() +
-        annotate("text", x = 4, y = 25, size=8, label = text) +
+        annotate("text", x = 4, y = 25, size = 5, label = text) +
         theme_void()
     } else{
       # updated plot
@@ -170,6 +167,7 @@ server <- function(input,output, session) {
     })
 
 
+  # TODO add option to download results
   # output$downloadPNG <- downloadHandler(
   #   filename = function() {
   #     str_c('rand_workout_plan_', Sys.Date(), '.png', sep='')
@@ -192,8 +190,7 @@ server <- function(input,output, session) {
 ui <- fluidPage(
   # theme = shinytheme("lumen"),
   theme = light,
-  h4("Interactive image segmentation using graphcut variations"),
-  titlePanel("Mix Things Up"),
+  titlePanel("Interactive image segmentation using graphcut variations"),
   # Layout a sidebar and main area
   sidebarLayout(
     #side bar here ----
@@ -241,6 +238,7 @@ ui <- fluidPage(
              ),
       column(6,
              br(),
+             #TODO maybe change this column to a ui module and hide it until run button is clicked?
              h4(strong('Received segmentation')),
              shinycssloaders::withSpinner(plotOutput("resultsPlot")),
              p('If you are not satisfied with the results, go back to settings and / or change annotations'),
