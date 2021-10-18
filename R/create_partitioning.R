@@ -65,9 +65,9 @@ calc_edges_caps <- function(input_image_df, limits_object, limits_background, me
 
 #' Adds pixel tagging to mark pixels selected by the user as object & background
 #'
-#' @param input_image_df
-#' @param limits_object
-#' @param limits_background
+#' @param input_image_df df storing image in a specific format
+#' @param limits_object list with coordinates of area (rectangle) selected as part of the object
+#' @param limits_background list with coordinates of area (rectangle) selected as part of the background
 #'
 #' @return df with additional column named user_tagging
 #' @export

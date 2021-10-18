@@ -4,7 +4,7 @@
 \alias{get_image}
 \title{Loads the image from specified path and resized it uniformly}
 \usage{
-get_image(image_path, max_size = 120)
+get_image(image_path, max_size = 80)
 }
 \arguments{
 \item{image_path}{path to the image}
