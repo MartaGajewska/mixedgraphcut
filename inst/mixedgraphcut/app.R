@@ -4,15 +4,8 @@
 
 #TODO: remove redundant packages
 library(shiny)
-library(rsconnect)
 library(dplyr)
 library(readr)
-# library(stringr)
-# library(lubridate)
-# library(gt)
-# library(webshot)
-# library(writexl)
-# library(bslib)
 library(shinyjs)
 library(httr)
 library(mclust)
@@ -20,32 +13,13 @@ library(ggplot2)
 library(shinycssloaders)
 
 ################################################################################
-#Set up some variables, define all as global (the <<- notation)
-#name of R package
+# Set up some variables, define all as global (the <<- notation)
+# name of R package
 packagename <<- "mixedgraphcut"
-#find path to apps
+# find path to apps
 appdir <<- system.file("appinformation", package = packagename) #find path to apps
 
 
-################################################################################
-# define functions
-################################################################################
-
-# get data ----
-gdocs_url <- "https://docs.google.com/spreadsheets/d/e/2PACX-1vQliF1fPTXNk6b4cVwbkD7GmYFmyNKkG2GrzYcr21d-C02L61gZZNrk3beBEf95mQ-doWd3MweAyZKH/pub?gid=0&single=true&output=csv"
-#read data from url
-exercise_data <- read_csv(gdocs_url)
-
-#set dynamic themes
-light <- bs_theme(version = 4, bootswatch = "minty")
-
-# simple function that creates app buttons for UI
-# specify data frame containing app info and the id of the app
-# make_button <- function(at,appid)
-# {
-#   id = which(at$appid == appid)
-#   actionButton(at$appid[id], paste0(at$apptitle[id]), class="mainbutton")
-# }
 
 
 ################################################################################
@@ -121,10 +95,6 @@ server <- function(input,output, session) {
     input_image_df <- input_image_df()
     image_partitioning <- mixedgraphcut::create_partitioning(input_image_df, limits_object, limits_background, input$input_method, list(object = input$input_n_dist_object, background = input$input_n_dist_background))
 
-    # temporary output  - testing
-    # paste0("obj, min: ", limits_object$xmin, ", max: ", limits_object$xmax,
-    #        ",   bcg, min: ", limits_background$xmin, ", max: ", limits_background$xmax)
-    #
     results_plot <-
       ggplot() +
       geom_raster(data = input_image_df %>%
@@ -185,15 +155,13 @@ server <- function(input,output, session) {
 ################################################################################
 # define UI ----
 ui <- fluidPage(
-  # theme = shinytheme("lumen"),
-  theme = light,
   titlePanel("Interactive image segmentation using graphcut variations"),
   # Layout a sidebar and main area
   sidebarLayout(
     #side bar here ----
     sidebarPanel(
       width = 3,
-      useShinyjs(),
+      shinyjs::useShinyjs(),
       tags$body(
         h4(strong('Settings: segmentation method')),
         br(),
@@ -203,7 +171,7 @@ ui <- fluidPage(
         p('- gaussian mixture with fixed number of distributions (to be specified)'),
         p('- gaussian mixture with dynamic number of distributions')
       ),
-      selectInput("input_method", "Select method",
+      selectInput("input_method", "Select method:",
                   choices = list("single distribution" = "regular",
                                  "mixture, fixed" = "mixed",
                                  "mixture, dynamic" = "mixed_bic")),
@@ -225,7 +193,7 @@ ui <- fluidPage(
              fluidRow(
                #TODO change naming to one convention - camelcase or underscores
                #TODO add error handling - e.g. when no file is selected, but the upload button is clicked
-              column(6, fileInput("input_image", "Choose an image", accept = c(".jpg", ".png", ".bmp"))),
+              column(6, fileInput("input_image", "Select image:", accept = c(".jpg", ".png", ".bmp"))),
               column(6, br(), actionButton("uploadButton", "Upload!", btn_type = "button", class = "btn-secondnary"))),
              plotOutput("uploaded_image", height = 300, width = 300, brush = brushOpts(id = "uploaded_image_brush")),
              actionButton("selectObjectButton", "Mark as part of the object!", btn_type = "button", class = "btn-secondnary"),
