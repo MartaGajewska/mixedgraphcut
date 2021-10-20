@@ -1,12 +1,24 @@
 Package: mixedgraphcut
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Interactive Image Segmentation Using Graphcut
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Author: Marta Gajewska
+Maintainer: Marta Gajewska <mart.gajewska@gmail.com>
+Description: This package presents new graphcut variations for interactive image segmentation as well as an Shiny app allowing user to perform a segmentation on a selected image. 
+License: CC0
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.0
+Imports:
+  data.table,
+  dplyr,
+  igraph,
+  imager,
+  ggplot2,
+  mixtools,
+  mvtnorm,
+  purrr,
+  shiny,
+  shinycssloaders,
+  shinyjs,
+  tidyr
