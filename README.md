@@ -5,9 +5,9 @@
 
 This package presents new graphcut variations for interactive image segmentation as well as an Shiny app allowing user to perform a segmentation on a selected image. 
 
-Launch application : 
+Application preview: 
 
-![](www/app_screep.JPG)
+![](www/app_screen.JPG)
 
 
 
