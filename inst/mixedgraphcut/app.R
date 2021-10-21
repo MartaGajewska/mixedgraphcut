@@ -3,14 +3,14 @@
 ################################################################################
 
 #TODO: remove redundant packages
-library(shiny)
-library(dplyr)
-library(readr)
-library(shinyjs)
-library(httr)
-library(mclust)
-library(ggplot2)
-library(shinycssloaders)
+# library(shiny)
+# library(dplyr)
+# library(readr)
+# library(shinyjs)
+# library(httr)
+# library(mclust)
+# library(ggplot2)
+# library(shinycssloaders)
 
 ################################################################################
 # Set up some variables, define all as global (the <<- notation)
@@ -28,11 +28,6 @@ appdir <<- system.file("appinformation", package = packagename) #find path to ap
 server <- function(input,output, session) {
 # TODO organize server code by module
   vals <- reactiveValues()
-
-  # observe({
-  #   if(input$uploadButton)
-  #     show("selectObjectButton")
-  # })
 
   observe({
     hide("selectObjectButton")
