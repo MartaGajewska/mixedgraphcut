@@ -3,14 +3,9 @@
 ################################################################################
 
 #TODO: remove redundant packages
-# library(shiny)
-# library(dplyr)
-# library(readr)
-# library(shinyjs)
-# library(httr)
-# library(mclust)
-# library(ggplot2)
-# library(shinycssloaders)
+library(mclust)
+
+
 
 ################################################################################
 # Set up some variables, define all as global (the <<- notation)
