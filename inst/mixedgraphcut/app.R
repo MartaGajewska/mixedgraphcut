@@ -30,13 +30,13 @@ server <- function(input,output, session) {
   vals <- reactiveValues()
 
   observe({
-    hide("selectObjectButton")
-    hide("selectBackgroundButton")
-    hide("runButton")
+    shinyjs::hide("selectObjectButton")
+    shinyjs::hide("selectBackgroundButton")
+    shinyjs::hide("runButton")
     if(input$uploadButton) {
-      show("selectObjectButton")
-      show("selectBackgroundButton")
-      show("runButton")
+      shinyjs::show("selectObjectButton")
+      shinyjs::show("selectBackgroundButton")
+      shinyjs::show("runButton")
     }
   })
 
@@ -49,24 +49,24 @@ server <- function(input,output, session) {
   #show uploaded image ----
 
   plot_image_df <- function(image_df)({
-      ggplot(image_df, aes(column, row)) +
-        geom_raster(aes(fill=rgb_value))  +
-        scale_y_reverse() +
-        scale_fill_identity() +
-        theme(legend.position="none") +
-        theme_void() +
-        coord_fixed(ratio=1)
+    ggplot2::ggplot(image_df, ggplot2::aes(column, row)) +
+      ggplot2::geom_raster(ggplot2::aes(fill=rgb_value))  +
+      ggplot2::scale_y_reverse() +
+      ggplot2::scale_fill_identity() +
+      ggplot2::theme(legend.position="none") +
+      ggplot2::theme_void() +
+      ggplot2::coord_fixed(ratio=1)
 
   })
 
   output$uploaded_image <- renderPlot({plot_image_df(input_image_df())})
 
   observe({
-    hide("input_n_dist_object")
-    hide("input_n_dist_background")
+    shinyjs::hide("input_n_dist_object")
+    shinyjs::hide("input_n_dist_background")
     if(input$input_method == "mixed") {
-      show("input_n_dist_object")
-      show("input_n_dist_background")
+      shinyjs::show("input_n_dist_object")
+      shinyjs::show("input_n_dist_background")
     }
   })
   # get selected parts of the object and background
@@ -91,23 +91,23 @@ server <- function(input,output, session) {
     image_partitioning <- mixedgraphcut::create_partitioning(input_image_df, limits_object, limits_background, input$input_method, list(object = input$input_n_dist_object, background = input$input_n_dist_background))
 
     results_plot <-
-      ggplot() +
-      geom_raster(data = input_image_df %>%
+      ggplot2::ggplot() +
+      ggplot2::geom_raster(data = input_image_df %>%
                     filter(column != 1 ),
-                  aes(column-1, row, fill=rgb_value), hjust = 0.5)  +
-      geom_point(data = input_image_df %>%
+                    ggplot2::aes(column-1, row, fill=rgb_value), hjust = 0.5)  +
+      ggplot2::geom_point(data = input_image_df %>%
                    filter(node_id %in% image_partitioning$partition2) %>%
                    filter(column != max(input_image_df$column)),
-                 aes(column, row), color = "black", alpha = 0.5, size = 2) +
-      geom_point(data = input_image_df %>%
+                   ggplot2::aes(column, row), color = "black", alpha = 0.5, size = 2) +
+      ggplot2::geom_point(data = input_image_df %>%
                    filter(node_id %in% image_partitioning$partition1) %>%
                    filter(column != max(input_image_df$column)),
-                 aes(column, row), color = "white", alpha = 0.5, size = 2) +
-      scale_y_reverse() +
-      scale_fill_identity() +
-      theme(legend.position="none") +
-      theme_void()+
-      coord_fixed(ratio=1)
+                   ggplot2::aes(column, row), color = "white", alpha = 0.5, size = 2) +
+      ggplot2::scale_y_reverse() +
+      ggplot2::scale_fill_identity() +
+      ggplot2::theme(legend.position="none") +
+      ggplot2::theme_void()+
+      ggplot2::coord_fixed(ratio=1)
       # labs(title = paste0("Segmentation"))
 
     # TODO add option to download results: object or background
@@ -119,9 +119,9 @@ server <- function(input,output, session) {
     if (!input$runButton) {
       # default plot
       text = paste("\n ... waiting for segmentation results ...\n")
-      ggplot() +
-        annotate("text", x = 4, y = 25, size = 5, label = text) +
-        theme_void()
+      ggplot2::ggplot() +
+        ggplot2::annotate("text", x = 4, y = 25, size = 5, label = text) +
+        ggplot2::theme_void()
     } else{
       # updated plot
       segmented_image()
