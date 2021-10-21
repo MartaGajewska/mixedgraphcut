@@ -15,6 +15,7 @@ Imports:
   igraph,
   imager,
   ggplot2,
+  mclust,
   mixtools,
   mvtnorm,
   purrr,
