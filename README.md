@@ -10,11 +10,12 @@ Application preview:
 ![](www/app_screen.JPG)
 
 
-
-
-## How to use the package
-
 Launch application:
 ```r
 mixedgraphcut::run_segmentation_app()
 ```
+
+## More details - in polish only
+
+For more details about algorithms included in the package, follow the link:
+<a href="https://github.com/MartaGajewska/mixedgraphcut/blob/master/www/Marta_Gajewska_Interaktywna_segmentacja.pdf" target="_blank">PDF.</a>
